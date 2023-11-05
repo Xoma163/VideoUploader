@@ -1,10 +1,11 @@
+from datetime import datetime
 from pathlib import Path
 
 from windows_metadata import WindowsAttributes
 
 
 class Video:
-    def __init__(self, file: str, title: str, description: str = None, tags: list = None):
+    def __init__(self, file: str, title: str, description: str = None, tags: list = None, publish: datetime = None):
         self.file: str = file
         self.title: str = title
         self.description: str = description
@@ -12,10 +13,11 @@ class Video:
         attrs = WindowsAttributes(Path(file))
         hours, minutes, seconds = attrs['length'].split(':', 2)
 
-        self.duration = int(seconds) + int(minutes) * 60 + int(hours) * 3600  # sec
+        self.duration: int = int(seconds) + int(minutes) * 60 + int(hours) * 3600  # sec
 
-        self.tags = tags
+        self.tags: list = tags
+        self.publish: datetime = publish
 
     @property
-    def is_short(self):
+    def is_short(self) -> bool:
         return self.duration < 60

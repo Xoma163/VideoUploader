@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import googleapiclient.discovery
 import googleapiclient.errors
@@ -34,8 +34,6 @@ class Youtube(Handler):
         self.youtube = None
         self._set_youtube_instance()
 
-        self.publish_delay_minutes = 30
-
     def upload(self, video: Video, **kwargs):
         media_body = MediaFileUpload(video.file, chunksize=-1, resumable=True)
 
@@ -59,13 +57,16 @@ class Youtube(Handler):
         if kwargs.get('category_id'):
             snippet['categoryId'] = kwargs.get('category_id')
 
+        status = {
+            'privacyStatus': 'private',
+            "madeForKids": False
+        }
+        if video.publish:
+            status['publishAt'] = video.publish.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         body = {
             'snippet': snippet,
-            'status': {
-                'privacyStatus': 'private',
-                'publishAt': (dt_now + timedelta(minutes=self.publish_delay_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "madeForKids": False
-            },
+            'status': status,
             'recordingDetails': {
                 'recordingDate': dt_now.strftime("%Y-%m-%dT00:00:00Z")
             }
