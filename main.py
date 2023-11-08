@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from handlers.youtube import Youtube
 from video import Video

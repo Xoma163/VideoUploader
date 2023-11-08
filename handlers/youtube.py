@@ -37,38 +37,40 @@ class Youtube(Handler):
     def upload(self, video: Video, **kwargs):
         media_body = MediaFileUpload(video.file, chunksize=-1, resumable=True)
 
-        dt_now = datetime.now()
+        title = video.title or ""
+        description = video.description or ""
+        tags = video.tags or []
 
-        description = video.description
-        tags = video.tags
         if video.is_short:
-            if video.description:
-                description = "#shorts #short\n" + video.description
-            if video.tags:
-                tags = ['short', 'shorts'] + video.tags
+            main_tags = [f"#{x}" for x in video.main_tags]
+            main_tags_str = " ".join(main_tags)
+
+            title = f"{video.title} {main_tags_str}".strip()
+            description = f"{video.description}\n#short #shorts".strip()
+            tags = ['short', 'shorts'] + video.tags
 
         snippet = {
-            'title': video.title,
-            'description': description or "",
-            'tags': tags or [],
+            'title': title,
+            'description': description,
+            'tags': tags,
             'defaultLanguage': "ru",
             "defaultAudioLanguage": "ru"
         }
-        if kwargs.get('category_id'):
-            snippet['categoryId'] = kwargs.get('category_id')
+        if category_id := kwargs.get('category_id'):
+            snippet['categoryId'] = category_id
 
         status = {
             'privacyStatus': 'private',
             "madeForKids": False
         }
-        if video.publish:
-            status['publishAt'] = video.publish.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if publish_at := video.publish:
+            status['publishAt'] = publish_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         body = {
             'snippet': snippet,
             'status': status,
             'recordingDetails': {
-                'recordingDate': dt_now.strftime("%Y-%m-%dT00:00:00Z")
+                'recordingDate': datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
             }
         }
 
