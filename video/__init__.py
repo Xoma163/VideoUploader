@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -9,6 +10,9 @@ class Video:
         self.file: str = file
         self.title: str = title
         self.description: str = description
+
+        if not os.path.exists(file):
+            raise FileExistsError(f"Файл {file} не найден")
 
         attrs = WindowsAttributes(Path(file))
         hours, minutes, seconds = attrs['length'].split(':', 2)

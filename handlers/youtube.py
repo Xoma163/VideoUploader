@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -8,7 +9,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib import flow
 from googleapiclient.http import MediaFileUpload
-
+from google.auth.exceptions import RefreshError
 from handlers import Handler
 from video import Video
 
@@ -82,6 +83,8 @@ class Youtube(Handler):
 
         response = request.execute()
         print(response)
+        studio_link = f"https://studio.youtube.com/video/{response['id']}/edit"
+        print(f"Edit your video here - {studio_link}")
 
         self.insert_video_in_playlist(response['id'])
         # self.make_video_public(response['id'])
@@ -122,7 +125,11 @@ class Youtube(Handler):
             creds = Credentials.from_authorized_user_file(self.CLIENT_CREDS, self.SCOPES)
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+                try:
+                    creds.refresh(Request())
+                except RefreshError:
+                    _flow = flow.InstalledAppFlow.from_client_secrets_file(self.CLIENT_SECRET, self.SCOPES)
+                    creds = _flow.run_local_server(port=0)
             else:
                 _flow = flow.InstalledAppFlow.from_client_secrets_file(self.CLIENT_SECRET, self.SCOPES)
                 creds = _flow.run_local_server(port=0)
