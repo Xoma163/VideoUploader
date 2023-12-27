@@ -1,15 +1,15 @@
-import json
 import os
 from datetime import datetime
 
 import googleapiclient.discovery
 import googleapiclient.errors
 from dotenv import load_dotenv
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib import flow
 from googleapiclient.http import MediaFileUpload
-from google.auth.exceptions import RefreshError
+
 from handlers import Handler
 from video import Video
 
@@ -29,13 +29,11 @@ class Youtube(Handler):
         "https://www.googleapis.com/auth/youtube.force-ssl"
     ]
 
-    PLAYLIST_ID = os.getenv("YOUTUBE_PLAYLIST_ID")
-
     def __init__(self):
         self.youtube = None
         self._set_youtube_instance()
 
-    def upload(self, video: Video, **kwargs):
+    def upload(self, video: Video, playlist_id=None, **kwargs):
         media_body = MediaFileUpload(video.file, chunksize=-1, resumable=True)
 
         title = video.title or ""
@@ -65,7 +63,7 @@ class Youtube(Handler):
             "madeForKids": False
         }
         if publish_at := video.publish:
-            status['publishAt'] = publish_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+            status['publishAt'] = publish_at.strftime("%Y-%m-%dT%H:%M:%S%Z")
 
         body = {
             'snippet': snippet,
@@ -86,16 +84,16 @@ class Youtube(Handler):
         studio_link = f"https://studio.youtube.com/video/{response['id']}/edit"
         print(f"Edit your video here - {studio_link}")
 
-        self.insert_video_in_playlist(response['id'])
+        self.insert_video_in_playlist(response['id'], playlist_id)
         # self.make_video_public(response['id'])
 
-    def insert_video_in_playlist(self, video_id):
-        if self.PLAYLIST_ID is None:
+    def insert_video_in_playlist(self, video_id, playlist_id):
+        if playlist_id is None:
             return
         body = {
             "kind": "youtube#playlistItem",
             "snippet": {
-                "playlistId": self.PLAYLIST_ID,
+                "playlistId": playlist_id,
                 "resourceId": {
                     "kind": "youtube#video",
                     "videoId": video_id
