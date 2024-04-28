@@ -4,7 +4,6 @@ import shutil
 import pytz
 
 from game import Game
-from games import OverwatchGame
 from handlers.youtube import Youtube
 from video_file import VideoFile
 from video_to_upload import VideoToUpload
@@ -56,7 +55,7 @@ def publish_video(title: str, game: Game, video_file: VideoFile, description: st
 def main():
     title = "test title"
     description = None
-    game = OverwatchGame()
+    game = Game()
     path_to_find_videos = r"path_to_find_video_files"
 
     video_file = VideoFile(path_to_find_videos, game.save_paths)
