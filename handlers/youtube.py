@@ -1,5 +1,5 @@
+import datetime
 import os
-from datetime import datetime
 
 import googleapiclient.discovery
 import googleapiclient.errors
@@ -11,7 +11,7 @@ from google_auth_oauthlib import flow
 from googleapiclient.http import MediaFileUpload
 
 from handlers import Handler
-from video import Video
+from video_to_upload import VideoToUpload
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 load_dotenv()
@@ -29,24 +29,32 @@ class Youtube(Handler):
         "https://www.googleapis.com/auth/youtube.force-ssl"
     ]
 
-    def __init__(self):
+    UPLOADING_MB_PER_SEC = 1.75
+    PROCESSING_MB_PER_SEC = 0.66
+    EXTRA_TIME_SEC = 300
+
+    ROUND_INTERVAL_MINUTES = 10
+
+    def __init__(self, video: VideoToUpload):
+        super().__init__(video)
+
         self.youtube = None
         self._set_youtube_instance()
 
-    def upload(self, video: Video, playlist_id=None, **kwargs):
-        media_body = MediaFileUpload(video.file, chunksize=-1, resumable=True)
+    def upload(self) -> dict:
+        media_body = MediaFileUpload(self.video.video_file.file_path, chunksize=-1, resumable=True)
 
-        title = video.title or ""
-        description = video.description or ""
-        tags = video.tags or []
+        title = self.video.title or ""
+        description = self.video.description or ""
+        tags = self.video.game.tags or []
 
-        if video.is_short:
-            main_tags = [f"#{x}" for x in video.main_tags]
+        if self.video.video_file.is_short:
+            main_tags = [f"#{x}" for x in self.video.game.main_tags]
             main_tags_str = " ".join(main_tags)
 
-            title = f"{video.title} {main_tags_str}".strip()
-            description = f"{video.description}\n#short #shorts".strip()
-            tags = ['short', 'shorts'] + video.tags
+            title = f"{self.video.title} {main_tags_str}".strip()
+            description = f"{self.video.description}\n#short #shorts".strip()
+            tags = ['short', 'shorts'] + tags
 
         snippet = {
             'title': title,
@@ -55,21 +63,21 @@ class Youtube(Handler):
             'defaultLanguage': "ru",
             "defaultAudioLanguage": "ru"
         }
-        if category_id := kwargs.get('category_id'):
-            snippet['categoryId'] = category_id
+        if self.video.game.youtube_category_id:
+            snippet['categoryId'] = self.video.game.youtube_category_id
 
         status = {
             'privacyStatus': 'private',
             "madeForKids": False
         }
-        if publish_at := video.publish:
+        if publish_at := self.video.publish_at:
             status['publishAt'] = publish_at.strftime("%Y-%m-%dT%H:%M:%S%Z")
 
         body = {
             'snippet': snippet,
             'status': status,
             'recordingDetails': {
-                'recordingDate': datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
+                'recordingDate': datetime.datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
             }
         }
 
@@ -80,11 +88,9 @@ class Youtube(Handler):
         )
 
         response = request.execute()
-        print(response)
-        studio_link = f"https://studio.youtube.com/video/{response['id']}/edit"
-        print(f"Edit your video here - {studio_link}")
-
-        self.insert_video_in_playlist(response['id'], playlist_id)
+        if self.video.game.youtube_playlist_id:
+            self.insert_video_in_playlist(response['id'], self.video.game.youtube_playlist_id)
+        return response
         # self.make_video_public(response['id'])
 
     def insert_video_in_playlist(self, video_id, playlist_id):
@@ -105,16 +111,14 @@ class Youtube(Handler):
             part="snippet",
             body=body
         )
-        response = request.execute()
-        print(response)
+        request.execute()
 
     def make_video_public(self, video_id):
         request = self.youtube.videos().list(
             part="status",
             id=video_id
         )
-        response = request.execute()
-        print(response)
+        request.execute()
 
     # https://stackoverflow.com/questions/73485981/in-python-is-there-any-way-i-can-store-a-resource-object-so-i-can-use-it-late
     def _get_creds(self) -> Credentials:
@@ -139,3 +143,14 @@ class Youtube(Handler):
         credentials = self._get_creds()
         self.youtube = googleapiclient.discovery.build(self.API_SERVICE_NAME, self.API_VERSION, credentials=credentials)
         return self.youtube
+
+    def calculate_publish_time(self) -> datetime:
+        file_size = self.video.video_file.size
+        processing_time = int(file_size / self.UPLOADING_MB_PER_SEC + file_size / self.PROCESSING_MB_PER_SEC)
+        full_processing_time = processing_time + self.EXTRA_TIME_SEC
+
+        publish_at = (datetime.datetime.now() + datetime.timedelta(seconds=full_processing_time))
+        interval = self.ROUND_INTERVAL_MINUTES * 60
+        publish_at = datetime.datetime.fromtimestamp((publish_at.timestamp() // interval + 1) * interval)
+        publish_at -= datetime.timedelta(minutes=1)
+        return publish_at
