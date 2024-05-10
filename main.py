@@ -1,29 +1,29 @@
 import datetime
 import shutil
 
-import pytz
-
 from game import Game
 from handlers.youtube import Youtube
 from video_file import VideoFile
 from video_to_upload import VideoToUpload
 
-TIMEZONE = "Europe/Samara"
 DT_STR_FORMAT = '%d.%m.%Y %H:%M'
+TIMEZONE = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+TIMEZONE_OFFSET = TIMEZONE.utcoffset(datetime.datetime.now()).seconds
 
 
 def publish_youtube(video: VideoToUpload):
     print("Публикование в ютуб")
     youtube = Youtube(video)
     publish_at: datetime = youtube.calculate_publish_time()
-    publish_at_str = publish_at.astimezone(pytz.timezone(TIMEZONE)).strftime(DT_STR_FORMAT)
+    publish_at_str = publish_at.strftime(DT_STR_FORMAT)
     print(f"Видео будет опубликовано в {publish_at_str}")
+    # Ютуб принимает UTC время и ставит таймзону в зависимости от пользователя. Поэтому здесь мы откручиваем наше время
+    publish_at -= datetime.timedelta(seconds=TIMEZONE_OFFSET)
     video.publish_at = publish_at
     print("Начал выгружать видео")
     response = youtube.upload()
     print("Закончил выгружать видео")
-
-    studio_link = f"https://studio.youtube.com/video/{response['id']}/edit"
+    studio_link = youtube.get_studio_link(response['id'])
     print(f"Редактируйте видео здесь: {studio_link}")
 
 

@@ -154,3 +154,7 @@ class Youtube(Handler):
         publish_at = datetime.datetime.fromtimestamp((publish_at.timestamp() // interval + 1) * interval)
         publish_at -= datetime.timedelta(minutes=1)
         return publish_at
+
+    @staticmethod
+    def get_studio_link(_id):
+        return f"https://studio.youtube.com/video/{_id}/edit"
