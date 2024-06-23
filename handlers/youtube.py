@@ -6,7 +6,6 @@ import googleapiclient.errors
 from dotenv import load_dotenv
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
-from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib import flow
 from googleapiclient.http import MediaFileUpload
@@ -21,9 +20,10 @@ load_dotenv()
 class Youtube(Handler):
     API_SERVICE_NAME = "youtube"
     API_VERSION = "v3"
-    CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET_FILE_NAME")
-    CLIENT_CREDS = "secrets/token.json"
-    SERVICE_ACCOUNT_CREDS = "secrets/service_account.json"
+    _SECRETS_FOLDER = "secrets"
+    CLIENT_SECRET = os.path.join(_SECRETS_FOLDER, "client_secret.json")
+    CLIENT_CREDS = os.path.join(_SECRETS_FOLDER, "token.json")
+    SERVICE_ACCOUNT_CREDS = os.path.join(_SECRETS_FOLDER, "service_account.json")
     SCOPES = [
         "https://www.googleapis.com/auth/youtube.upload",
         "https://www.googleapis.com/auth/youtube",
@@ -124,9 +124,6 @@ class Youtube(Handler):
 
     # https://stackoverflow.com/questions/73485981/in-python-is-there-any-way-i-can-store-a-resource-object-so-i-can-use-it-late
     def _get_creds(self) -> Credentials:
-        if os.path.exists(self.SERVICE_ACCOUNT_CREDS):
-            return service_account.Credentials.from_service_account_file(self.SERVICE_ACCOUNT_CREDS, scopes=self.SCOPES)
-
         creds = None
         if os.path.exists(self.CLIENT_CREDS):
             creds = Credentials.from_authorized_user_file(self.CLIENT_CREDS, self.SCOPES)
